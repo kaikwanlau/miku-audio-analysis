@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>初音ミク × Audio Research — Are Vocaloid Songs Getting Denser?</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── 等线 (Dengxian) font stack ── */
+:root {
+  --font: "等线", "DengXian", "等线 Light", "Microsoft YaHei UI", "微软雅黑", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-title: "等线", "DengXian", "Microsoft YaHei UI", sans-serif;
+
+  --miku:       #00b8b0;
+  --miku-mid:   #00a09a;
+  --miku-light: #5dd8d3;
+  --miku-pale:  #c8f0ee;
+  --miku-bg:    #edfaf9;
+  --sakura:     #f06ea0;
+  --sakura-dim: #fde8f2;
+  --sakura-pale:#fff0f7;
+  --deep:       #00403d;
+  --text:       #0f2422;       /* very dark — max readability */
+  --text-mid:   #1e3f3c;       /* dark, high contrast */
+  --text-soft:  #2e5a56;       /* readable — not washed out */
+  --white:      #ffffff;
+  --card:       #ffffff;
+  --shadow:     0 6px 28px rgba(0,184,176,0.13);
+  --shadow-h:   0 14px 44px rgba(0,184,176,0.25);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--miku-bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CURSOR ── */
+.cursor { position:fixed; width:32px; height:32px; pointer-events:none; z-index:9999; transform:translate(-50%,-50%); font-size:1.4rem; line-height:32px; text-align:center; }
+.cursor-trail { position:fixed; width:10px; height:10px; border-radius:50%; background:var(--sakura); pointer-events:none; z-index:9998; transform:translate(-50%,-50%); transition:all 0.16s ease-out; opacity:0.5; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--miku-pale); }
+::-webkit-scrollbar-thumb { background:var(--miku); border-radius:10px; }
+
+/* ── FLOATING NOTES ── */
+.note { position:fixed; font-size:1.2rem; opacity:0; pointer-events:none; z-index:1; animation:floatNote linear infinite; user-select:none; }
+@keyframes floatNote {
+  0%   { transform:translateY(105vh) rotate(0deg);  opacity:0; }
+  6%   { opacity:0.45; }
+  94%  { opacity:0.2; }
+  100% { transform:translateY(-10vh) rotate(320deg); opacity:0; }
+}
+
+/* ── NAV ── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:200;
+  height:60px; padding:0 36px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:rgba(237,250,249,0.92);
+  backdrop-filter:blur(18px);
+  border-bottom:2px solid var(--miku-pale);
+}
+.nav-logo {
+  display:flex; align-items:center; gap:10px;
+  font-family: var(--font-title);
+  font-weight:700; font-size:1.05rem;
+  color:var(--miku); text-decoration:none; letter-spacing:0.03em;
+}
+.nav-logo .sub { font-size:0.75rem; color:var(--text-soft); font-weight:500; letter-spacing:0.02em; }
+.nav-links { display:flex; gap:4px; }
+.nav-links a {
+  padding:6px 16px; border-radius:20px;
+  font-size:0.82rem; font-weight:600; letter-spacing:0.02em;
+  color:var(--text-mid); text-decoration:none; transition:all 0.2s;
+}
+.nav-links a:hover { background:var(--miku-pale); color:var(--miku); }
+@media(max-width:640px){ .nav-links{display:none;} }
+
+/* ── HERO ── */
+#hero {
+  min-height:100vh; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:80px 24px 64px; position:relative; overflow:hidden;
+  background:linear-gradient(150deg, #edfaf9 0%, #fce8f4 55%, #e0f8f7 100%);
+}
+.hero-bar {
+  position:absolute; top:0; left:0; right:0; height:5px;
+  background:linear-gradient(90deg,var(--miku),var(--sakura),var(--miku-light),var(--sakura),var(--miku));
+  background-size:200% 100%; animation:shimmer 3s linear infinite;
+}
+@keyframes shimmer { to { background-position:200% 0; } }
+
+.blob { position:absolute; border-radius:50%; filter:blur(70px); pointer-events:none; }
+.bl1 { width:480px; height:480px; background:rgba(0,184,176,0.11); top:-120px; left:-140px; }
+.bl2 { width:380px; height:380px; background:rgba(240,110,160,0.12); bottom:-80px; right:-80px; }
+.bl3 { width:260px; height:260px; background:rgba(178,242,238,0.22); top:180px; right:12%; }
+
+.deco-ring { position:absolute; border-radius:50%; border:2px dashed var(--miku); opacity:0.14; animation:spin linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Miku SVG silhouette */
+.miku-art { position:absolute; right:2%; bottom:0; width:260px; height:420px; opacity:0.1; pointer-events:none; }
+
+/* Hero badge */
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:white; border:2px solid var(--miku-pale);
+  border-radius:30px; padding:8px 22px;
+  font-size:0.82rem; font-weight:600; color:var(--miku);
+  letter-spacing:0.02em;
+  margin-bottom:28px; box-shadow:var(--shadow);
+  animation:popIn 0.55s 0.1s both;
+}
+@keyframes popIn { 0%{transform:scale(0.75);opacity:0;} 70%{transform:scale(1.04);} 100%{transform:scale(1);opacity:1;} }
+@keyframes slideUp { from{transform:translateY(28px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+
+.hero-title {
+  font-family: var(--font-title);
+  font-size:clamp(2rem,5.5vw,3.8rem);
+  font-weight:700; line-height:1.18;
+  text-align:center; margin-bottom:20px;
+  color:var(--deep); letter-spacing:0.02em;
+  animation:slideUp 0.65s 0.3s both;
+}
+.hero-title .teal  { color:var(--miku); }
+.hero-title .pink  { color:var(--sakura); }
+.hero-title .jp {
+  display:block; font-size:0.46em; letter-spacing:0.05em;
+  color:var(--text-soft); margin-bottom:10px; font-weight:500;
+}
+
+.hero-sub {
+  font-size:1.05rem; font-weight:500;
+  color:var(--text-mid);          /* ← darker, readable */
+  text-align:center; max-width:560px; line-height:1.8;
+  margin-bottom:44px; animation:slideUp 0.65s 0.5s both;
+}
+
+/* Stat bubbles */
+.hero-stats { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:44px; animation:slideUp 0.65s 0.7s both; }
+.stat-bubble {
+  background:var(--white); border:2px solid var(--miku-pale);
+  border-radius:18px; padding:18px 24px; text-align:center;
+  box-shadow:var(--shadow);
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.stat-bubble:hover { transform:translateY(-5px) rotate(-1deg); box-shadow:var(--shadow-h); border-color:var(--miku); }
+.stat-bubble .n {
+  font-family:var(--font-title); font-size:2.1rem; font-weight:700;
+  color:var(--miku); display:block; line-height:1; margin-bottom:5px;
+}
+.stat-bubble .l {
+  font-size:0.74rem; font-weight:700; letter-spacing:0.06em;
+  color:var(--text-mid); text-transform:uppercase;
+}
+
+/* Buttons */
+.cta { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; animation:slideUp 0.65s 0.9s both; }
+.btn {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:12px 28px; border-radius:28px; border:none;
+  font-family:var(--font); font-size:0.9rem; font-weight:700;
+  letter-spacing:0.02em; cursor:none; text-decoration:none;
+  transition:all 0.22s; white-space:nowrap;
+}
+.btn-miku   { background:var(--miku); color:#fff; box-shadow:0 5px 18px rgba(0,184,176,0.4); }
+.btn-miku:hover   { background:var(--miku-mid); transform:translateY(-3px); box-shadow:0 10px 26px rgba(0,184,176,0.45); }
+.btn-sakura { background:var(--sakura); color:#fff; box-shadow:0 5px 18px rgba(240,110,160,0.35); }
+.btn-sakura:hover { background:#d8578a; transform:translateY(-3px); }
+.btn-ghost  { background:var(--white); color:var(--miku); border:2px solid var(--miku-pale); box-shadow:var(--shadow); }
+.btn-ghost:hover  { border-color:var(--miku); transform:translateY(-3px); box-shadow:var(--shadow-h); }
+
+.scroll-hint {
+  position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  color:var(--text-soft); font-size:0.72rem; font-weight:600;
+  letter-spacing:0.12em; text-transform:uppercase;
+  animation:slideUp 0.65s 1.1s both;
+}
+.scroll-arrow { font-size:1.1rem; animation:bob 1.6s ease-in-out infinite; }
+@keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(7px);} }
+
+/* ── SECTIONS ── */
+.section { padding:88px 24px; max-width:1100px; margin:0 auto; }
+
+.section-tag {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--miku-pale); color:var(--deep);
+  padding:5px 16px; border-radius:20px;
+  font-size:0.76rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+  margin-bottom:14px;
+}
+
+h2 {
+  font-family:var(--font-title);
+  font-size:clamp(1.75rem,3.2vw,2.5rem);
+  font-weight:700; color:var(--deep);
+  margin-bottom:14px; line-height:1.2; letter-spacing:0.02em;
+}
+
+.lead {
+  font-size:1.04rem; font-weight:500;
+  color:var(--text-mid);   /* ← dark enough to read */
+  line-height:1.82; max-width:640px; margin-bottom:50px;
+}
+
+/* ── WAVE DIVIDERS ── */
+.wave { width:100%; line-height:0; overflow:hidden; }
+.wave svg { display:block; width:100%; }
+
+/* ── FINDING CARDS ── */
+.grid-6 { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:20px; }
+
+.fcard {
+  background:var(--card); border-radius:22px; padding:28px;
+  border:2px solid transparent; box-shadow:var(--shadow);
+  position:relative; overflow:hidden;
+  transition:all 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  opacity:0; transform:translateY(26px) scale(0.97);
+}
+.fcard.vis { opacity:1; transform:none; transition:opacity 0.45s,transform 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+.fcard:hover { transform:translateY(-6px) rotate(0.35deg); box-shadow:var(--shadow-h); border-color:var(--miku-pale); }
+.fcard-deco { position:absolute; right:-14px; bottom:-14px; font-size:4.8rem; opacity:0.07; pointer-events:none; transition:transform 0.3s; }
+.fcard:hover .fcard-deco { transform:scale(1.18) rotate(12deg); }
+
+.fcard-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.ficon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; }
+.fi-teal { background:var(--miku-pale); }
+.fi-pink { background:var(--sakura-dim); }
+
+.fsig { font-size:0.7rem; font-weight:700; padding:4px 12px; border-radius:20px; }
+.sig3 { background:var(--miku);      color:#fff; }
+.sig2 { background:var(--miku-pale); color:var(--miku-mid); }
+.sig1 { background:var(--sakura-dim);color:#b03570; }
+
+.fmetric {
+  font-size:0.74rem; font-weight:800; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--text-mid); margin-bottom:4px;
+}
+.fchange {
+  font-family:var(--font-title); font-size:2.4rem; font-weight:700;
+  line-height:1; margin-bottom:10px;
+}
+.cup  { color:var(--miku); }
+.cdown{ color:var(--sakura); }
+
+.fdesc {
+  font-size:0.9rem; font-weight:500;
+  color:var(--text-mid);   /* ← was too light, now readable */
+  line-height:1.68;
+}
+
+/* ── CHARTS ── */
+.chart-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
+.tab {
+  padding:9px 20px; border-radius:22px;
+  border:2px solid var(--miku-pale); background:var(--white);
+  font-family:var(--font); font-size:0.82rem; font-weight:700;
+  letter-spacing:0.02em; cursor:none; color:var(--text-mid);
+  transition:all 0.2s;
+}
+.tab.active,.tab:hover {
+  background:var(--miku); color:#fff; border-color:var(--miku);
+  transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,184,176,0.3);
+}
+
+.chart-card { background:var(--white); border-radius:26px; padding:34px; box-shadow:var(--shadow); border:2px solid var(--miku-pale); }
+.cpanel { display:none; }
+.cpanel.active { display:block; }
+.ctitle { font-family:var(--font-title); font-size:1.08rem; font-weight:700; color:var(--deep); margin-bottom:6px; letter-spacing:0.02em; }
+.csub {
+  font-size:0.82rem; font-weight:700;
+  color:var(--deep);               /* ← dark for full readability */
+  background:var(--miku-pale); display:inline-block;
+  padding:3px 14px; border-radius:10px; margin-bottom:24px;
+}
+canvas { max-height:355px; }
+
+/* ── ERA CARDS ── */
+.era-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:20px; }
+.ecard {
+  border-radius:22px; padding:26px 22px;
+  position:relative; overflow:hidden;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  opacity:0; transform:translateY(20px);
+}
+.ecard.vis { opacity:1; transform:none; }
+.ecard:hover { transform:translateY(-6px); }
+.ec1{background:linear-gradient(140deg,#dffaf8,#c8f0ee);border:2px solid #a8e8e5;}
+.ec2{background:linear-gradient(140deg,#fdeaf4,#fbd6ea);border:2px solid #f4b8d8;}
+.ec3{background:linear-gradient(140deg,#e8f2ff,#d8e8ff);border:2px solid #b8d0ff;}
+.ec4{background:linear-gradient(140deg,#fefce8,#fef9c3);border:2px solid #fde272;}
+
+.eemoji { font-size:2.1rem; margin-bottom:12px; display:block; }
+.eyears {
+  font-size:0.72rem; font-weight:800; letter-spacing:0.12em;
+  text-transform:uppercase; color:var(--text-mid); margin-bottom:4px;
+}
+.ename { font-family:var(--font-title); font-size:1rem; font-weight:700; color:var(--deep); margin-bottom:10px; }
+.ebody {
+  font-size:0.86rem; font-weight:500;
+  color:var(--text-mid);   /* ← readable */
+  line-height:1.68; margin-bottom:14px;
+}
+.echip {
+  display:inline-block; font-size:0.73rem; font-weight:700;
+  padding:3px 12px; border-radius:18px;
+  background:rgba(255,255,255,0.72); color:var(--text-mid); margin:2px;
+}
+.echip strong { color:var(--miku-mid); }
+
+/* ── TABLE ── */
+.tbl-controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.tsearch {
+  flex:1; min-width:200px; padding:10px 18px; border-radius:20px;
+  border:2px solid var(--miku-pale); background:var(--white);
+  font-family:var(--font); font-size:0.88rem; font-weight:600;
+  color:var(--text); outline:none; transition:border-color 0.2s;
+}
+.tsearch:focus { border-color:var(--miku); }
+.tsearch::placeholder { color:var(--text-soft); }
+.fpill {
+  padding:8px 18px; border-radius:20px;
+  border:2px solid var(--miku-pale); background:var(--white);
+  font-family:var(--font); font-size:0.8rem; font-weight:700;
+  color:var(--text-mid); cursor:none; transition:all 0.18s;
+}
+.fpill.active,.fpill:hover { background:var(--miku); color:#fff; border-color:var(--miku); }
+
+.tbl-wrap { background:var(--white); border-radius:22px; overflow:hidden; box-shadow:var(--shadow); border:2px solid var(--miku-pale); overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+thead { background:linear-gradient(90deg,var(--miku-pale),var(--sakura-dim)); }
+th {
+  padding:13px 18px; text-align:left;
+  font-size:0.72rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--deep);      /* ← very dark header text */
+  cursor:pointer; user-select:none; white-space:nowrap; transition:background 0.2s;
+}
+th:hover { background:rgba(0,184,176,0.14); }
+th.sa::after{content:' ↑';color:var(--miku);} th.sd::after{content:' ↓';color:var(--miku);}
+
+td {
+  padding:12px 18px; border-bottom:1px solid var(--miku-pale);
+  font-size:0.84rem; font-weight:600;
+  color:var(--text);      /* ← dark readable text */
+  white-space:nowrap;
+}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(0,184,176,0.04);}
+.up  { color:var(--miku-mid);  font-weight:700; }
+.dn  { color:var(--sakura);    font-weight:700; }
+.neu { color:var(--text-soft); }
+.badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; }
+.b3{background:var(--miku);      color:#fff;}
+.b2{background:var(--miku-pale); color:var(--miku-mid);}
+.b1{background:var(--sakura-dim);color:#b03570;}
+.b0{background:#eeeeee;          color:#888;}
+
+/* ── ABOUT / METHOD ── */
+.about-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:start; }
+@media(max-width:700px){.about-grid{grid-template-columns:1fr;}}
+
+.mlist{list-style:none;}
+.mitem {
+  display:flex; gap:16px; margin-bottom:26px;
+  opacity:0; transform:translateX(-18px); transition:all 0.45s;
+}
+.mitem.vis{opacity:1;transform:none;}
+.mstep-icon { flex-shrink:0; width:44px; height:44px; border-radius:14px; background:var(--miku-pale); display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+.mstep-txt strong { display:block; font-size:0.9rem; font-weight:700; color:var(--deep); margin-bottom:3px; }
+.mstep-txt span   { font-size:0.84rem; font-weight:500; color:var(--text-mid); line-height:1.58; }
+
+.cite-box { background:var(--miku-bg); border:2px solid var(--miku-pale); border-radius:18px; padding:24px; position:relative; }
+.cite-lbl { font-size:0.72rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--miku); margin-bottom:10px; }
+.cite-pre {
+  font-family: "等线", "DengXian", "Courier New", monospace;
+  font-size:0.76rem; line-height:1.9;
+  color:var(--text-mid);  /* ← readable */
+  white-space:pre-wrap;
+}
+.copy-btn {
+  position:absolute; top:16px; right:16px;
+  padding:5px 14px; border-radius:18px;
+  border:2px solid var(--miku-pale); background:var(--white);
+  font-family:var(--font); font-size:0.74rem; font-weight:700;
+  color:var(--miku); cursor:none; transition:all 0.18s;
+}
+.copy-btn:hover,.copy-btn.done{background:var(--miku);color:#fff;border-color:var(--miku);}
+
+/* ── FOOTER ── */
+footer {
+  background:linear-gradient(135deg,var(--miku) 0%,var(--miku-mid) 40%,#b04080 100%);
+  padding:68px 24px; text-align:center; position:relative; overflow:hidden;
+}
+footer::before {
+  content:'🎵 🎶 ✨ 🎵 🎶 ✨ 🎵 🎶';
+  position:absolute; top:14px; left:0; right:0;
+  font-size:1.3rem; letter-spacing:2.4rem; opacity:0.16; pointer-events:none;
+}
+.ft-title { font-family:var(--font-title); font-size:clamp(1.3rem,2.8vw,1.9rem); font-weight:700; color:#fff; margin-bottom:8px; letter-spacing:0.03em; }
+.ft-sub   { font-size:0.98rem; font-weight:500; color:rgba(255,255,255,0.85); margin-bottom:30px; }
+.ft-links { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:22px; }
+.ft-links a {
+  padding:8px 22px; border-radius:22px;
+  background:rgba(255,255,255,0.22); color:#fff;
+  text-decoration:none; font-size:0.85rem; font-weight:700;
+  border:1px solid rgba(255,255,255,0.32); transition:all 0.2s;
+}
+.ft-links a:hover { background:rgba(255,255,255,0.38); transform:translateY(-2px); }
+.ft-copy { font-size:0.74rem; color:rgba(255,255,255,0.62); letter-spacing:0.06em; }
+
+/* ── SPARKLE ── */
+.sparkle { position:fixed; pointer-events:none; z-index:9997; font-size:1rem; animation:spark 0.6s forwards; }
+@keyframes spark {
+  0%   { transform:translate(-50%,-50%) scale(0) rotate(0deg); opacity:1; }
+  100% { transform:translate(-50%,-110px) scale(1.5) rotate(200deg); opacity:0; }
+}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity 0.55s,transform 0.55s;}
+.reveal.vis{opacity:1;transform:none;}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor">🎵</div>
+<div class="cursor-trail" id="trail"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    🎤 MIKU × DATA
+    <span class="sub">初音ミク音楽分析</span>
+  </a>
+  <div class="nav-links">
+    <a href="#findings">发现</a>
+    <a href="#charts">图表</a>
+    <a href="#eras">时代</a>
+    <a href="#data-section">数据</a>
+    <a href="#about">关于</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bar"></div>
+  <div class="blob bl1"></div>
+  <div class="blob bl2"></div>
+  <div class="blob bl3"></div>
+  <div class="deco-ring" style="width:280px;height:280px;top:-70px;right:11%;animation-duration:24s;"></div>
+  <div class="deco-ring" style="width:140px;height:140px;bottom:110px;left:7%;animation-duration:17s;border-color:var(--sakura);border-style:dotted;"></div>
+
+  <!-- Miku silhouette -->
+  <div class="miku-art">
+    <svg viewBox="0 0 260 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="130" cy="305" rx="60" ry="85" fill="#00b8b0"/>
+      <circle cx="130" cy="162" r="66" fill="#00b8b0"/>
+      <path d="M88 144 Q26 110 12 182 Q0 250 35 302 Q60 250 86 212 Z" fill="#00b8b0"/>
+      <path d="M172 144 Q234 110 248 182 Q260 250 225 302 Q200 250 174 212 Z" fill="#00b8b0"/>
+      <path d="M82 140 Q66 85 84 48 Q110 12 130 20 Q150 12 176 48 Q194 85 178 140" fill="#009990"/>
+      <path d="M126 22 Q120 -6 136 -10 Q146 2 130 22 Z" fill="#00b8b0"/>
+    </svg>
+  </div>
+
+  <div style="position:relative;z-index:2;text-align:center;max-width:740px;">
+    <div class="hero-badge">✨ Published · Knowledge Commons · DOI: 10.17613/yd6ys-m6e87</div>
+
+    <h1 class="hero-title">
+      <span class="jp">初音ミク音楽の進化を科学で解明</span>
+      Are Vocaloid Songs<br>Getting <span class="teal">Denser</span>? <span class="pink">♪</span>
+    </h1>
+
+    <p class="hero-sub">
+      A scientific love letter to Hatsune Miku — 1,900 songs, 18 years, 12 acoustic features, and one big question: why does modern Vocaloid music feel so much faster? 💙
+    </p>
+
+    <div class="hero-stats">
+      <div class="stat-bubble"><span class="n">1,900</span><span class="l">Songs Analyzed</span></div>
+      <div class="stat-bubble"><span class="n">19</span><span class="l">Years · 2007–2025</span></div>
+      <div class="stat-bubble"><span class="n">12</span><span class="l">Acoustic Features</span></div>
+      <div class="stat-bubble"><span class="n">8</span><span class="l">Significant Trends</span></div>
+    </div>
+
+    <div class="cta">
+      <a href="https://doi.org/10.17613/yd6ys-m6e87" class="btn btn-miku" target="_blank">📄 Read the Paper</a>
+      <a href="#findings" class="btn btn-sakura">✨ See Results</a>
+      <a href="https://github.com/kaikwanlau/miku-audio-analysis" class="btn btn-ghost" target="_blank">⌥ GitHub</a>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>scroll down</span>
+    <div class="scroll-arrow">↓</div>
+  </div>
+</section>
+
+<div class="wave"><svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60"><path d="M0,28 C240,58 480,0 720,28 C960,56 1200,0 1440,28 L1440,60 L0,60 Z" fill="white"/></svg></div>
+
+<!-- FINDINGS -->
+<div style="background:#fff;">
+<div class="section" id="findings">
+  <div class="section-tag">🔬 Key Results</div>
+  <h2>What Changed in 18 Years</h2>
+  <p class="lead">Songs didn't just get faster — they got <strong>structurally compressed</strong>. More musical events packed into less time, across 8 statistically significant acoustic dimensions.</p>
+  <div class="grid-6">
+
+    <div class="fcard">
+      <div class="fcard-deco">🥁</div>
+      <div class="fcard-top">
+        <div class="ficon fi-teal">🥁</div>
+        <span class="fsig sig2">p = 0.004 ★★</span>
+      </div>
+      <div class="fmetric">Tempo · BPM</div>
+      <div class="fchange cup">+2.3%</div>
+      <div class="fdesc">From 120.4 → 123.1 BPM. Statistically real but perceptually subtle — a change you'd never consciously notice in one song.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-deco">🎵</div>
+      <div class="fcard-top">
+        <div class="ficon fi-teal">🎵</div>
+        <span class="fsig sig2">p = 0.010 ★★</span>
+      </div>
+      <div class="fmetric">Onset Density</div>
+      <div class="fchange cup">+6.4%</div>
+      <div class="fdesc">More acoustic events per second — busier drums, denser synths, faster vocal attacks. The real measure of musical "speed."</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-deco">⏱️</div>
+      <div class="fcard-top">
+        <div class="ficon fi-pink">⏱️</div>
+        <span class="fsig sig2">p = 0.002 ★★</span>
+      </div>
+      <div class="fmetric">Song Duration</div>
+      <div class="fchange cdown">−6.8%</div>
+      <div class="fdesc">205.8 → 191.8 seconds average. The sharpest drop hit after 2020 — coinciding with TikTok's mainstream rise in Japan.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-deco">🌀</div>
+      <div class="fcard-top">
+        <div class="ficon fi-teal">🌀</div>
+        <span class="fsig sig3">p &lt; 0.001 ★★★</span>
+      </div>
+      <div class="fmetric">Rhythm Complexity</div>
+      <div class="fchange cup">+9.1%</div>
+      <div class="fdesc">Shannon entropy of inter-onset intervals — more syncopation, polyrhythm, and genre-blending in modern Vocaloid production.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-deco">🎸</div>
+      <div class="fcard-top">
+        <div class="ficon fi-teal">🎸</div>
+        <span class="fsig sig1">p = 0.042 ★</span>
+      </div>
+      <div class="fmetric">Harmonic Change Rate</div>
+      <div class="fchange cup">+8.0%</div>
+      <div class="fdesc">Chords and tonal centers shift more frequently — songs feel more harmonically adventurous and less repetitive over time.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-deco">🎯</div>
+      <div class="fcard-top">
+        <div class="ficon fi-pink">🎯</div>
+        <span class="fsig sig3">p &lt; 0.001 ★★★</span>
+      </div>
+      <div class="fmetric">Tempo Stability</div>
+      <div class="fchange cdown">−0.7%</div>
+      <div class="fdesc">A small but highly significant drift away from rigid quantization — modern Vocaloid production feels subtly more humanized.</div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="wave" style="background:#fff;"><svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60"><path d="M0,18 C360,54 720,0 1080,34 C1260,50 1380,10 1440,18 L1440,60 L0,60 Z" fill="#edfaf9"/></svg></div>
+
+<!-- CHARTS -->
+<div style="background:var(--miku-bg);">
+<div class="section" id="charts">
+  <div class="section-tag">📊 Interactive Charts</div>
+  <h2>The Data, Rendered ✨</h2>
+  <p class="lead">Yearly aggregates across all 1,900 songs. Click tabs to switch. Hover data points for exact values.</p>
+
+  <div class="chart-tabs">
+    <button class="tab active" onclick="switchTab('bpm',this)">🥁 BPM</button>
+    <button class="tab" onclick="switchTab('onset',this)">🎵 Density</button>
+    <button class="tab" onclick="switchTab('duration',this)">⏱️ Duration</button>
+    <button class="tab" onclick="switchTab('rhythm',this)">🌀 Rhythm</button>
+    <button class="tab" onclick="switchTab('era',this)">🌸 Era Compare</button>
+    <button class="tab" onclick="switchTab('short',this)">📱 Short Songs</button>
+  </div>
+
+  <div class="chart-card">
+    <div class="cpanel active" id="panel-bpm">
+      <div class="ctitle">Mean Tempo (BPM) — 2007 to 2025</div>
+      <div class="csub">↑ Increasing · τ = +0.49 · p = 0.004 · Sen's slope +0.26 BPM/yr</div>
+      <canvas id="chart-bpm"></canvas>
+    </div>
+    <div class="cpanel" id="panel-onset">
+      <div class="ctitle">Note / Onset Density (events/sec)</div>
+      <div class="csub">↑ Increasing · τ = +0.44 · p = 0.010 · U-shaped, accelerating post-2019</div>
+      <canvas id="chart-onset"></canvas>
+    </div>
+    <div class="cpanel" id="panel-duration">
+      <div class="ctitle">Mean Song Duration (seconds)</div>
+      <div class="csub">↓ Decreasing · τ = −0.53 · p = 0.002 · Sharp drop after 2020</div>
+      <canvas id="chart-duration"></canvas>
+    </div>
+    <div class="cpanel" id="panel-rhythm">
+      <div class="ctitle">Rhythm Complexity (bits of entropy)</div>
+      <div class="csub">↑ Increasing · τ = +0.63 · p &lt; 0.001 · Strongest trend in the dataset</div>
+      <canvas id="chart-rhythm"></canvas>
+    </div>
+    <div class="cpanel" id="panel-era">
+      <div class="ctitle">Era Comparison — Key Metrics Across Four Eras</div>
+      <div class="csub">Early Vocaloid → Growth → Streaming → Short-Video</div>
+      <canvas id="chart-era"></canvas>
+    </div>
+    <div class="cpanel" id="panel-short">
+      <div class="ctitle">Songs Under 3 Minutes (out of 100 per year)</div>
+      <div class="csub">Stable at 5–13% (2012–2020) — then surged to 42% by 2025 after TikTok 📱</div>
+      <canvas id="chart-short"></canvas>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="wave" style="background:var(--miku-bg);"><svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60"><path d="M0,38 C400,8 800,54 1200,18 C1320,8 1400,34 1440,38 L1440,60 L0,60 Z" fill="white"/></svg></div>
+
+<!-- ERAS -->
+<div style="background:#fff;">
+<div class="section" id="eras">
+  <div class="section-tag">🌸 Historical Context</div>
+  <h2>Four Digital Eras</h2>
+  <p class="lead">Each platform shift left a measurable fingerprint in the music. 18 years of Vocaloid maps almost perfectly onto the internet's evolution.</p>
+  <div class="era-grid">
+    <div class="ecard ec1">
+      <span class="eemoji">🌱</span>
+      <div class="eyears">2007 – 2011</div>
+      <div class="ename">The Niconico Era</div>
+      <div class="ebody">Miku debuts. The community explodes on Niconico. Songs are spacious and joyful — "Melt," "Miku Miku♪," "World is Mine." Producers discovering what the technology can do.</div>
+      <span class="echip">Avg. <strong>235.7s</strong></span>
+      <span class="echip">Density <strong>2.70/s</strong></span>
+    </div>
+    <div class="ecard ec2">
+      <span class="eemoji">🌸</span>
+      <div class="eyears">2012 – 2016</div>
+      <div class="ename">The Golden Age</div>
+      <div class="ebody">Songs grow longer and more elaborate. DECO*27, kz, Hachi push compositional limits. The community goes global via fan translation groups. Duration peaks at 248s.</div>
+      <span class="echip">Avg. <strong>248.1s</strong></span>
+      <span class="echip">Density <strong>2.62/s</strong></span>
+    </div>
+    <div class="ecard ec3">
+      <span class="eemoji">📱</span>
+      <div class="eyears">2017 – 2020</div>
+      <div class="ename">Platform Diversification</div>
+      <div class="ebody">Vocaloid reaches Spotify & Apple Music. New synth engines emerge — NEUTRINO, Synthesizer V. Onset density starts rising. Genre diversity explodes.</div>
+      <span class="echip">Avg. <strong>230.6s</strong></span>
+      <span class="echip">Density <strong>2.87/s</strong></span>
+    </div>
+    <div class="ecard ec4">
+      <span class="eemoji">⚡</span>
+      <div class="eyears">2021 – 2025</div>
+      <div class="ename">The TikTok Inflection</div>
+      <div class="ebody">Mean duration drops 38 seconds. Sub-3-min songs surge from 5% to 42%. Producers pack more musical content into less time. Not truncated — <em>compressed.</em></div>
+      <span class="echip">Avg. <strong style="color:var(--sakura)">196.9s</strong></span>
+      <span class="echip">Cohen's d <strong>0.61</strong></span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="wave" style="background:#fff;"><svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60"><path d="M0,8 C300,48 600,4 900,38 C1100,58 1300,14 1440,8 L1440,60 L0,60 Z" fill="var(--miku-bg)"/></svg></div>
+
+<!-- DATA TABLE -->
+<div style="background:var(--miku-bg);">
+<div class="section" id="data-section">
+  <div class="section-tag">📋 Full Results</div>
+  <h2>All 12 Metrics</h2>
+  <p class="lead">Click column headers to sort. Filter by trend direction. Search by metric name.</p>
+
+  <div class="tbl-controls">
+    <input type="text" class="tsearch" id="tableSearch" placeholder="🔍 Search metric...">
+    <button class="fpill active" onclick="filterTable('all',this)">All</button>
+    <button class="fpill" onclick="filterTable('increasing',this)">↑ Rising</button>
+    <button class="fpill" onclick="filterTable('decreasing',this)">↓ Falling</button>
+    <button class="fpill" onclick="filterTable('sig',this)">★ Significant</button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortTable(0)">Metric</th>
+        <th onclick="sortTable(1)">Trend</th>
+        <th onclick="sortTable(2)">τ</th>
+        <th onclick="sortTable(3)">p-value</th>
+        <th onclick="sortTable(4)">Slope/yr</th>
+        <th onclick="sortTable(5)">2007</th>
+        <th onclick="sortTable(6)">2025</th>
+        <th onclick="sortTable(7)">Change</th>
+        <th onclick="sortTable(8)">Sig.</th>
+      </tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="wave" style="background:var(--miku-bg);"><svg viewBox="0 0 1440 60" preserveAspectRatio="none" height="60"><path d="M0,28 C480,0 960,58 1440,28 L1440,60 L0,60 Z" fill="white"/></svg></div>
+
+<!-- ABOUT -->
+<div style="background:#fff;">
+<div class="section" id="about">
+  <div class="about-grid">
+    <div>
+      <div class="section-tag">🔬 Methodology</div>
+      <h2>How We Did It</h2>
+      <ul class="mlist" style="margin-top:26px;">
+        <li class="mitem">
+          <div class="mstep-icon">🗄️</div>
+          <div class="mstep-txt">
+            <strong>Step 1 — VocaDB API</strong>
+            <span>Top 100 songs/year (2007–2025) ranked by community score. Metadata and video URLs extracted for all 1,900 songs.</span>
+          </div>
+        </li>
+        <li class="mitem">
+          <div class="mstep-icon">⬇️</div>
+          <div class="mstep-txt">
+            <strong>Step 2 — yt-dlp Audio Download</strong>
+            <span>Downloaded from Niconico and YouTube at 192 kbps MP3. 100% successful acquisition across all 1,900 songs.</span>
+          </div>
+        </li>
+        <li class="mitem">
+          <div class="mstep-icon">🎛️</div>
+          <div class="mstep-txt">
+            <strong>Step 3 — librosa Feature Extraction</strong>
+            <span>12 acoustic features extracted at 22,050 Hz: BPM, onset density, rhythm complexity, spectral metrics, energy, and harmonic change rate.</span>
+          </div>
+        </li>
+        <li class="mitem">
+          <div class="mstep-icon">📊</div>
+          <div class="mstep-txt">
+            <strong>Step 4 — Mann-Kendall Trend Tests</strong>
+            <span>Non-parametric tests on yearly aggregates + Sen's slope estimation + Welch's t-test with Cohen's d for era comparisons.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="section-tag">📖 Citation</div>
+      <h2 style="margin-bottom:20px;">Cite This Work</h2>
+      <div class="cite-box">
+        <div class="cite-lbl">BibTeX</div>
+        <button class="copy-btn" id="copyBtn" onclick="copyCitation()">Copy 📋</button>
+        <pre class="cite-pre" id="citationText">@misc{lau_2026_yd6ys-m6e87,
+  author    = {Lau, Kaikwan},
+  title     = {{Are Vocaloid Songs Getting Denser?
+                A Longitudinal Audio Analysis of
+                1,900 Hatsune Miku Songs
+                (2007--2025)}},
+  month     = mar,
+  year      = 2026,
+  publisher = {Knowledge Commons},
+  doi       = {10.17613/yd6ys-m6e87},
+  url       = {https://doi.org/10.17613/yd6ys-m6e87}
+}</pre>
+      </div>
+      <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
+        <a href="https://doi.org/10.17613/yd6ys-m6e87" class="btn btn-miku" target="_blank" style="width:fit-content;">📄 Full Paper</a>
+        <a href="https://github.com/kaikwanlau/miku-audio-analysis" class="btn btn-ghost" target="_blank" style="width:fit-content;">⌥ GitHub Repo</a>
+        <a href="https://vocadb.net" class="btn btn-ghost" target="_blank" style="width:fit-content;">🎵 VocaDB Source</a>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>
+  <div class="ft-title">初音ミクへ、18年間の音楽をありがとう 💙</div>
+  <div class="ft-sub">To Hatsune Miku: thank you for 18 years of music.</div>
+  <div class="ft-links">
+    <a href="https://doi.org/10.17613/yd6ys-m6e87" target="_blank">📄 Paper</a>
+    <a href="https://github.com/kaikwanlau/miku-audio-analysis" target="_blank">⌥ GitHub</a>
+    <a href="mailto:kaikwan.lau39@gmail.com">✉️ Contact</a>
+    <a href="https://vocadb.net" target="_blank">🎵 VocaDB</a>
+    <a href="#hero">↑ Top</a>
+  </div>
+  <div class="ft-copy">MIT License · Kaikwan Lau · 2026 · Made with 💙 for the Vocaloid Community</div>
+</footer>
+
+<script>
+// ── CURSOR ──
+const cur = document.getElementById('cursor');
+const trail = document.getElementById('trail');
+let mx=0,my=0,tx=0,ty=0;
+document.addEventListener('mousemove', e => {
+  mx=e.clientX; my=e.clientY;
+  cur.style.left=mx+'px'; cur.style.top=my+'px';
+});
+(function loop(){
+  tx+=(mx-tx)*0.18; ty+=(my-ty)*0.18;
+  trail.style.left=tx+'px'; trail.style.top=ty+'px';
+  requestAnimationFrame(loop);
+})();
+
+// Sparkle on click
+const SPARKS = ['✨','🎵','💙','🌟','🎶','🌸','⭐'];
+document.addEventListener('click', e => {
+  SPARKS.forEach((em,i) => setTimeout(() => {
+    const s = document.createElement('div');
+    s.className = 'sparkle'; s.textContent = em;
+    s.style.left = (e.clientX + (Math.random()-.5)*44)+'px';
+    s.style.top  = (e.clientY + (Math.random()-.5)*44)+'px';
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 700);
+  }, i*65));
+});
+
+// ── FLOATING NOTES ──
+['🎵','🎶','🎼','♪','♫','🎤','💙','✨','🌸','⭐','🎀'].forEach((n,i) => {
+  const el = document.createElement('div');
+  el.className = 'note'; el.textContent = n;
+  el.style.cssText = `left:${Math.random()*100}%;font-size:${0.85+Math.random()*1.1}rem;animation-duration:${11+Math.random()*15}s;animation-delay:${Math.random()*15}s;`;
+  document.body.appendChild(el);
+});
+
+// ── SCROLL OBSERVER ──
+const obs = new IntersectionObserver(entries => {
+  entries.forEach((e,i) => {
+    if(e.isIntersecting) setTimeout(() => e.target.classList.add('vis'), e.target.dataset.d||0);
+  });
+}, {threshold:0.1});
+document.querySelectorAll('.fcard,.ecard,.mitem,.reveal').forEach((el,i) => {
+  el.dataset.d = i*85; obs.observe(el);
+});
+
+// ── CHART SETUP ──
+const YRS = [2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+const D = {
+  bpm:    [120.4,119.8,121.3,122.1,118.7,119.4,120.6,121.9,122.5,123.1,121.8,122.4,115.8,120.7,122.1,123.4,122.8,123.0,123.1],
+  onset:  [3.04,2.89,2.71,2.45,2.17,2.38,2.54,2.67,2.81,2.89,2.95,3.03,3.08,3.12,3.15,3.19,3.21,3.22,3.23],
+  dur:    [205.8,238.4,245.2,232.1,241.7,248.8,252.1,249.6,266.3,251.4,243.8,236.7,228.9,231.2,220.4,191.4,198.7,191.2,191.8],
+  rhythm: [2.43,2.44,2.45,2.47,2.46,2.49,2.51,2.53,2.55,2.57,2.58,2.60,2.61,2.62,2.63,2.64,2.64,2.65,2.65],
+  sub3:   [28,8,4,6,9,6,5,5,6,7,8,8,8,10,21,38,36,38,42],
+  sub2:   [4,0,0,0,0,0,0,0,0,0,0,0,0,0,2,4,5,6,8],
+};
+
+const FONT = '"等线", "DengXian", "Microsoft YaHei UI", sans-serif';
+const TIP = {
+  backgroundColor:'rgba(255,255,255,0.97)',
+  borderColor:'#00b8b0', borderWidth:2,
+  titleColor:'#00403d', bodyColor:'#2e5550',
+  titleFont:{family:FONT,size:12,weight:'bold'},
+  bodyFont:{family:FONT,size:11},
+  cornerRadius:10, padding:12,
+};
+const BASE = {
+  responsive:true, maintainAspectRatio:true,
+  plugins:{
+    legend:{ labels:{ color:'#4a7570', font:{family:FONT,size:11,weight:'600'}, boxRadius:6 } },
+    tooltip:TIP
+  },
+  scales:{
+    x:{ ticks:{color:'#4a7570',font:{family:FONT,size:10,weight:'600'}}, grid:{color:'rgba(0,184,176,0.07)'} },
+    y:{ ticks:{color:'#4a7570',font:{family:FONT,size:10,weight:'600'}}, grid:{color:'rgba(0,184,176,0.07)'} }
+  }
+};
+
+function senSlope(y){
+  const s=[];
+  for(let i=0;i<y.length;i++) for(let j=i+1;j<y.length;j++) s.push((y[j]-y[i])/(j-i));
+  s.sort((a,b)=>a-b);
+  const m=s[Math.floor(s.length/2)];
+  const b=y.reduce((a,c)=>a+c,0)/y.length - m*(y.length-1)/2;
+  return y.map((_,i)=>+(m*i+b).toFixed(3));
+}
+
+function makeLine(id,label,data,color){
+  new Chart(document.getElementById(id),{
+    type:'line',
+    data:{ labels:YRS, datasets:[
+      { label, data, borderColor:color,
+        backgroundColor:color+'22',
+        borderWidth:3, pointRadius:5, pointHoverRadius:8,
+        pointBackgroundColor:'white', pointBorderColor:color, pointBorderWidth:2.5,
+        tension:0.35, fill:true },
+      { label:"Sen's Slope", data:senSlope(data),
+        borderColor:'#f06ea0', borderWidth:2, borderDash:[7,4],
+        pointRadius:0, fill:false }
+    ]},
+    options:BASE
+  });
+}
+makeLine('chart-bpm',    'Mean BPM',              D.bpm,    '#00b8b0');
+makeLine('chart-onset',  'Onset Density (evt/s)', D.onset,  '#4a90e2');
+makeLine('chart-duration','Duration (sec)',        D.dur,    '#34c98e');
+makeLine('chart-rhythm', 'Rhythm Complexity',      D.rhythm, '#9b6be8');
+
+new Chart(document.getElementById('chart-era'),{
+  type:'bar',
+  data:{
+    labels:['🌱 Early\n(07–11)','🌸 Growth\n(12–16)','📱 Streaming\n(17–20)','⚡ Short-Video\n(21–25)'],
+    datasets:[
+      { label:'Duration ÷100', data:[2.357,2.481,2.306,1.969],
+        backgroundColor:['#00b8b044','#00b8b044','#00b8b044','#f06ea066'],
+        borderColor:['#00b8b0','#00b8b0','#00b8b0','#f06ea0'],
+        borderWidth:2, borderRadius:10, borderSkipped:false },
+      { label:'Onset Density', data:[2.70,2.62,2.87,3.13],
+        backgroundColor:'#4a90e255', borderColor:'#4a90e2',
+        borderWidth:2, borderRadius:10, borderSkipped:false },
+      { label:'Rhythm Complexity', data:[2.48,2.56,2.69,2.72],
+        backgroundColor:'#9b6be855', borderColor:'#9b6be8',
+        borderWidth:2, borderRadius:10, borderSkipped:false }
+    ]
+  },
+  options:BASE
+});
+
+new Chart(document.getElementById('chart-short'),{
+  type:'bar',
+  data:{
+    labels:YRS,
+    datasets:[
+      { label:'Under 3 min 💙', data:D.sub3,
+        backgroundColor:YRS.map(y=>y>=2021?'#00b8b0cc':'#00b8b033'),
+        borderRadius:6, borderSkipped:false },
+      { label:'Under 2 min 🌸', data:D.sub2,
+        backgroundColor:'#f06ea0bb',
+        borderRadius:6, borderSkipped:false }
+    ]
+  },
+  options:BASE
+});
+
+function switchTab(id,btn){
+  document.querySelectorAll('.cpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── TABLE ──
+const TABLE = [
+  {m:'Tempo (BPM)',          tr:'increasing', tau:+0.49,p:0.004,  sl:'+0.26/yr',  v07:'120.4',v25:'123.1',pct:'+2.3%', sig:2},
+  {m:'Onset Density',        tr:'increasing', tau:+0.44,p:0.010,  sl:'+0.033/yr', v07:'3.04', v25:'3.23', pct:'+6.4%', sig:2},
+  {m:'Duration (sec)',       tr:'decreasing', tau:-0.53,p:0.002,  sl:'−3.22/yr',  v07:'205.8',v25:'191.8',pct:'−6.8%', sig:2},
+  {m:'Rhythm Complexity',    tr:'increasing', tau:+0.63,p:0.0003, sl:'+0.017/yr', v07:'2.43', v25:'2.65', pct:'+9.1%', sig:3},
+  {m:'Tempo Stability',      tr:'decreasing', tau:-0.63,p:0.0001, sl:'−0.0002/yr',v07:'0.966',v25:'0.959',pct:'−0.7%', sig:3},
+  {m:'Harmonic Change Rate', tr:'increasing', tau:+0.35,p:0.042,  sl:'+0.001/yr', v07:'0.522',v25:'0.564',pct:'+8.0%', sig:1},
+  {m:'Zero Crossing Rate',   tr:'decreasing', tau:-0.42,p:0.014,  sl:'−0.0009/yr',v07:'0.117',v25:'0.122',pct:'+4.3%†',sig:1},
+  {m:'Avg Note Duration',    tr:'decreasing', tau:-0.38,p:0.025,  sl:'−0.008/yr', v07:'0.328',v25:'0.302',pct:'−7.9%‡',sig:1},
+  {m:'Spectral Flux',        tr:'no trend',   tau:+0.08,p:0.675,  sl:'—',         v07:'77.8', v25:'103.1',pct:'+32%',  sig:0},
+  {m:'Spectral Centroid',    tr:'no trend',   tau:-0.08,p:0.675,  sl:'—',         v07:'2497', v25:'2740', pct:'+9.7%', sig:0},
+  {m:'RMS Energy',           tr:'no trend',   tau:-0.09,p:0.624,  sl:'—',         v07:'0.204',v25:'0.249',pct:'+22%',  sig:0},
+  {m:'Loudness (LUFS)',      tr:'excluded',   tau:null, p:null,   sl:'—',         v07:'—',    v25:'—',    pct:'—',      sig:0},
+];
+
+let cf='all', sd={};
+function renderTable(data){
+  document.getElementById('tableBody').innerHTML = data.map(r=>`<tr>
+    <td><strong>${r.m}</strong></td>
+    <td class="${r.tr==='increasing'?'up':r.tr==='decreasing'?'dn':'neu'}">${r.tr==='increasing'?'↑ rising':r.tr==='decreasing'?'↓ falling':r.tr}</td>
+    <td>${r.tau!==null?(r.tau>=0?'+':'')+r.tau.toFixed(2):'—'}</td>
+    <td>${r.p!==null?r.p.toFixed(4):'—'}</td>
+    <td style="font-size:0.8rem">${r.sl}</td>
+    <td>${r.v07}</td><td>${r.v25}</td>
+    <td class="${r.tr==='increasing'?'up':r.tr==='decreasing'?'dn':''}">${r.pct}</td>
+    <td>${r.sig===3?'<span class="badge b3">★★★</span>':r.sig===2?'<span class="badge b2">★★</span>':r.sig===1?'<span class="badge b1">★</span>':'<span class="badge b0">ns</span>'}</td>
+  </tr>`).join('');
+}
+function filterTable(f,btn){
+  cf=f;
+  document.querySelectorAll('.fpill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); apply();
+}
+function apply(){
+  const q=document.getElementById('tableSearch').value.toLowerCase();
+  renderTable(TABLE.filter(r=>r.m.toLowerCase().includes(q)&&(cf==='all'?true:cf==='sig'?r.sig>0:r.tr===cf)));
+}
+document.getElementById('tableSearch').addEventListener('input',apply);
+function sortTable(col){
+  const k=['m','tr','tau','p','sl','v07','v25','pct','sig'][col];
+  sd[col]=sd[col]==='asc'?'desc':'asc';
+  TABLE.sort((a,b)=>{
+    let va=a[k],vb=b[k];
+    if(va===null) va=sd[col]==='asc'?Infinity:-Infinity;
+    if(vb===null) vb=sd[col]==='asc'?Infinity:-Infinity;
+    return typeof va==='string'?(sd[col]==='asc'?va.localeCompare(vb):vb.localeCompare(va)):sd[col]==='asc'?va-vb:vb-va;
+  });
+  document.querySelectorAll('th').forEach((t,i)=>{
+    t.classList.remove('sa','sd');
+    if(i===col) t.classList.add(sd[col]==='asc'?'sa':'sd');
+  });
+  apply();
+}
+renderTable(TABLE);
+
+function copyCitation(){
+  navigator.clipboard.writeText(document.getElementById('citationText').textContent).then(()=>{
+    const b=document.getElementById('copyBtn');
+    b.textContent='Copied! ✓'; b.classList.add('done');
+    setTimeout(()=>{b.textContent='Copy 📋';b.classList.remove('done');},2000);
+  });
+}
+</script>
+</body>
+</html>
